@@ -94,7 +94,6 @@
 	<classpathentry kind="lib" path="lib/gt-process-14.3.jar"/>
 	<classpathentry kind="lib" path="lib/gt-process-feature-14.3.jar"/>
 	<classpathentry kind="lib" path="lib/gt-process-geometry-14.3.jar"/>
-	<classpathentry kind="lib" path="lib/gt-process-raster-14.3.jar"/>
 	<classpathentry kind="lib" path="lib/gt-property-14.3.jar"/>
 	<classpathentry kind="lib" path="lib/gt-referencing-14.3.jar"/>
 	<classpathentry kind="lib" path="lib/gt-referencing3D-14.3.jar"/>
@@ -147,7 +146,6 @@
 	<classpathentry kind="lib" path="lib2/imageio-ext-gdalrpftoc-1.1.13.jar"/>
 	<classpathentry kind="lib" path="lib2/imageio-ext-geocore-1.1.13.jar"/>
 	<classpathentry kind="lib" path="lib2/imageio-ext-imagereadmt-1.1.13.jar"/>
-	<classpathentry kind="lib" path="lib2/imageio-ext-imagereadmt-1.1M012010.jar"/>
 	<classpathentry kind="lib" path="lib2/imageio-ext-kakadu-1.1.13.jar"/>
 	<classpathentry kind="lib" path="lib2/imageio-ext-mat-sas-1.1M012010.jar"/>
 	<classpathentry kind="lib" path="lib2/imageio-ext-streams-1.1.13.jar"/>
