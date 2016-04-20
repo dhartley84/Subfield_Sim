@@ -3,11 +3,13 @@ package org.geotools.tutorial.quickstart;
 import java.awt.EventQueue;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 import javax.swing.JTextArea;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -117,6 +119,11 @@ public class Gui {
 		JLabel lblHarvestingCostPer = new JLabel("Harvesting Cost Per Hour");
 		lblHarvestingCostPer.setBounds(10, 150, 128, 14);
 		panel.add(lblHarvestingCostPer);
+		
+		JCheckBox cbxOutputLines=new JCheckBox("Save Lines");
+		cbxOutputLines.setBounds(277,245,111,23);
+		panel.add(cbxOutputLines);
+		cbxOutputLines.setSelected(false);
 	/**
 	 * Define Event Handlers
 	 */
@@ -169,9 +176,13 @@ public class Gui {
 		btnSvShapeFile.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try{
-				SaveShape.drawAreas(hArea);
-		        SaveShape.drawLines(hArea);
-		        System.exit(0);
+					if(!cbxOutputLines.isSelected()){
+						SaveShape.drawAreas(hArea);
+					} else{
+						SaveShape.drawAreas(hArea);
+				        SaveShape.drawLines(hArea);
+					}
+					System.exit(0);
 				} catch (Exception e){
 					e.printStackTrace();
 				}

@@ -110,8 +110,8 @@ public class SaveShape {
 			for(HLine l:p.HarvestLines){
 				Coordinate[] coords={l.Start,l.End};
 				LineString line=geometryFactory.createLineString(coords);
-				Coordinate anchor=new Coordinate(p.LongAxis[0],p.LongAxis[2]);
-				AffineTransform affineTransform=AffineTransform.getRotateInstance(Math.toRadians(p.LongAxis[5]),anchor.x,anchor.y);
+				Coordinate anchor=geometryFactory.createPolygon(p.Hull).getCentroid().getCoordinate();
+				AffineTransform affineTransform=AffineTransform.getRotateInstance(p.BoundingEnvelope[4],anchor.x,anchor.y);
 				MathTransform mathTransform=new AffineTransform2D(affineTransform);
 				Geometry rotated=JTS.transform(line,mathTransform);
 				LineString liner=(LineString)rotated;

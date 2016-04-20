@@ -8,6 +8,7 @@ import java.awt.geom.AffineTransform;
 
 import org.geotools.geometry.jts.JTS;
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
@@ -44,13 +45,13 @@ public class Poly {
 		Cost=c;
 		Vertices=coords;
 		Hull=Poly.convexHull(Vertices);
-		LongAxis=Poly.FindLongAxis(Hull);
-		TranslatedVertices=Poly.translateVertices(Vertices,LongAxis);
-		BoundingEnvelope=boundingEnvelope(TranslatedVertices);
+		BoundingEnvelope=boundingEnvelope(Vertices);
+		//LongAxis=Poly.FindLongAxis(BoundingEnvelope);
+		TranslatedVertices=Poly.translateVertices(Vertices,BoundingEnvelope);
 		Edges=calcEdges(BoundingEnvelope,TranslatedVertices);
 		HarvestLines=harvestLines(BoundingEnvelope,Edges,d,e);
 		Turns=createTurns(HarvestLines);
-		RotatedLines=rotateLines(HarvestLines,LongAxis);
+		RotatedLines=rotateLines(HarvestLines,BoundingEnvelope);
 		HarvestTime=CalcHarvestTime(HarvestLines,8,.95);
 		TurnTime=CalcTurnTime(Turns,4);
 		TotalTime=HarvestTime+TurnTime;
@@ -96,11 +97,11 @@ public class Poly {
 		return longAxis;
 	}
 	
-	public static Coordinate[] translateVertices(Coordinate[] Hull, Double[] LongAxis)throws Exception{
+	public static Coordinate[] translateVertices(Coordinate[] Hull, Double[] boundingEnvelope)throws Exception{
 		GeometryFactory geometryFactory=JTSFactoryFinder.getGeometryFactory();
 		Polygon rotate=geometryFactory.createPolygon(Hull);
-		Coordinate anchor= new Coordinate(LongAxis[0],LongAxis[2]);
-		AffineTransform affineTransform=AffineTransform.getRotateInstance(Math.toRadians(-LongAxis[5]),anchor.x,anchor.y);
+		Coordinate anchor= rotate.getCentroid().getCoordinate();
+		AffineTransform affineTransform=AffineTransform.getRotateInstance(-boundingEnvelope[4],anchor.x,anchor.y);
 		MathTransform mathTransform=new AffineTransform2D(affineTransform);
 		Geometry rotated=JTS.transform(rotate, mathTransform);
 		Coordinate[] transpoly=rotated.getCoordinates();
@@ -108,17 +109,43 @@ public class Poly {
 	}
 	
 	public static Double[] boundingEnvelope(Coordinate[] TranslatedVertices)throws Exception{
-		Double[] envelope={Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY};
-		for(Coordinate c:TranslatedVertices){
-			if (c.x<envelope[0])
-				envelope[0]=c.x;
-			if(c.x>envelope[1])
-				envelope[1]=c.x;
-			if(c.y<envelope[2])
-				envelope[2]=c.y;
-			if(c.y>envelope[3])
-				envelope[3]=c.y;
+		GeometryFactory geomFactory=JTSFactoryFinder.getGeometryFactory();
+		Polygon poly=geomFactory.createPolygon(TranslatedVertices);
+		Geometry geom=(Geometry) poly;
+		Coordinate c=geom.getCentroid().getCoordinate();
+		Coordinate[] coords=poly.getExteriorRing().getCoordinates();
+		
+		double minArea=Double.MAX_VALUE;
+		double minAngle=0.0;
+		
+		Polygon ssr=null;
+		Coordinate ci=coords[0],cii;
+		int count=0;
+		while(count<1000){
+			for(int i=0;i<coords.length-1;i++){
+				cii=coords[i+1];
+				double angle=Math.atan2(cii.y-ci.y,cii.x-ci.x);
+				Polygon rect=(Polygon) Rotation(poly,c,angle).getEnvelope();
+				double area=rect.getArea();
+				if (area==minArea)
+					count++;
+				
+				if(area<minArea){
+					minArea=area;
+					ssr=rect;
+					minAngle=angle;
+				}
+				ci=cii;
+			}
 		}
+		Double[] envelope=new Double[7];
+		envelope[0]=ssr.getEnvelopeInternal().getMaxX();
+		envelope[1]=ssr.getEnvelopeInternal().getMaxY();
+		envelope[2]=ssr.getEnvelopeInternal().getMinX();
+		envelope[3]=ssr.getEnvelopeInternal().getMinY();
+		envelope[4]=minAngle;
+		envelope[5]=ssr.getCentroid().getX();
+		envelope[6]=ssr.getCentroid().getY();
 		return envelope;
 	}
 	
@@ -136,18 +163,18 @@ public class Poly {
 	}
 	
 	public static HLine[] harvestLines(Double[] boundingEnvelope,Edge[] edges,Double cutWidth, Double overlap){
-		int numLines=(int) ((boundingEnvelope[3]-boundingEnvelope[2])/(cutWidth*(1-overlap)));
-		double y=boundingEnvelope[2];
+		int numLines=(int) ((boundingEnvelope[1]-boundingEnvelope[3])/(cutWidth*(1-overlap)));
+		double y=boundingEnvelope[3];
 		HLine[] hline=new HLine[numLines];
 		int i=0;
 		while (i<numLines){
 			if(i==0){
 				y+=(.5*cutWidth*(1-overlap));
-				hline[i]=new HLine(i,new Coordinate(boundingEnvelope[0],y),new Coordinate(boundingEnvelope[1],y));
+				hline[i]=new HLine(i,new Coordinate(boundingEnvelope[0],y),new Coordinate(boundingEnvelope[2],y));
 				i++;
 			} else {
 				y+=(cutWidth*(1-overlap));
-				hline[i]=new HLine(i,new Coordinate(boundingEnvelope[0],y),new Coordinate(boundingEnvelope[1],y));
+				hline[i]=new HLine(i,new Coordinate(boundingEnvelope[0],y),new Coordinate(boundingEnvelope[2],y));
 				i++;
 			}
 		}
@@ -211,18 +238,25 @@ public class Poly {
 		return turnTime;
 	}
 	
-	private static LineString[] rotateLines(HLine[] harvestLines,Double[] LongAxis)throws Exception{
+	private static LineString[] rotateLines(HLine[] harvestLines,Double[] boundingEnvelope)throws Exception{
 		LineString[] lines=new LineString[harvestLines.length];
 		GeometryFactory geometryFactory=JTSFactoryFinder.getGeometryFactory();
 		int i=0;
 		for(HLine h:harvestLines){
 			Coordinate[] coords={h.Start,h.End};
 			LineString line=geometryFactory.createLineString(coords);
-			AffineTransform affineTransform=AffineTransform.getRotateInstance(LongAxis[5],LongAxis[0],LongAxis[2]);
+			AffineTransform affineTransform=AffineTransform.getRotateInstance(boundingEnvelope[4],boundingEnvelope[5],boundingEnvelope[6]);
 			MathTransform mathTransform=new AffineTransform2D(affineTransform);
 			lines[i]=(LineString) JTS.transform(line, mathTransform);
 			i++;
 		}
 		return lines;
+	}
+	
+	private static Polygon Rotation(Polygon poly, Coordinate c, Double angle)throws Exception{
+		AffineTransform affineTransform=AffineTransform.getRotateInstance(-1.0*angle,c.x,c.y);
+		MathTransform mathTransform=new AffineTransform2D(affineTransform);
+		Polygon rotatedPoly=(Polygon) JTS.transform(poly,mathTransform);
+		return rotatedPoly;
 	}
 }
